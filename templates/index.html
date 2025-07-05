@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Processor API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .endpoint {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .method {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .path {
+            color: #666;
+            font-family: monospace;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="file"], input[type="text"] {
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            display: none;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            color: white;
+            font-size: 12px;
+        }
+        .status-pending { background-color: #ffc107; }
+        .status-processing { background-color: #17a2b8; }
+        .status-completed { background-color: #28a745; }
+        .status-failed { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Processor API</h1>
+        <p>Welcome to the PDF Processor API. This service extracts company names from PDFs and fetches their GitHub organization data.</p>
+        
+        <h2>API Endpoints</h2>
+        <div class="endpoint">
+            <span class="method">GET</span> <span class="path">/health</span>
+            <p>Health check endpoint</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">POST</span> <span class="path">/api/documents/upload</span>
+            <p>Upload a PDF file for processing</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <span class="path">/api/documents/status/{job_id}</span>
+            <p>Check the status of a processing job</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <span class="path">/api/documents</span>
+            <p>List all processed documents</p>
+        </div>
+        
+        <h2>Quick Test</h2>
+        <button onclick="checkHealth()">Check API Health</button>
+        
+        <h3>Upload PDF</h3>
+        <input type="file" id="pdfFile" accept=".pdf">
+        <button onclick="uploadPDF()">Upload and Process</button>
+        
+        <h3>Check Job Status</h3>
+        <input type="text" id="jobId" placeholder="Enter Job ID" style="width: 300px;">
+        <button onclick="checkStatus()">Check Status</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        function showResult(content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = content;
+            resultDiv.style.display = 'block';
+        }
+        
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResult(`<strong>✅ API is healthy</strong><br>Status: ${data.status}<br>Timestamp: ${data.timestamp}`);
+            } catch (error) {
+                showResult(`<strong>❌ Error:</strong> ${error.message}`);
+            }
+        }
+        
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdfFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('<strong>⚠️ Please select a PDF file</strong>');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showResult('<strong>⏳ Uploading and processing...</strong>');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('jobId').value = data.job_id;
+                    showResult(`
+                        <strong>✅ Upload successful!</strong><br>
+                        <strong>Job ID:</strong> ${data.job_id}<br>
+                        <strong>Status:</strong> <span class="status-badge status-${data.status}">${data.status}</span><br>
+                        <strong>Message:</strong> ${data.message}<br>
+                        <br>
+                        <em>Job ID has been copied to the status check field.</em>
+                    `);
+                } else {
+                    showResult(`<strong>❌ Error:</strong> ${data.error}`);
+                }
+            } catch (error) {
+                showResult(`<strong>❌ Error:</strong> ${error.message}`);
+            }
+        }
+        
+        async function checkStatus() {
+            const jobId = document.getElementById('jobId').value;
+            
+            if (!jobId) {
+                showResult('<strong>⚠️ Please enter a Job ID</strong>');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/documents/status/${jobId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let html = `
+                        <strong>Job Status</strong><br>
+                        <strong>Job ID:</strong> ${data.job_id}<br>
+                        <strong>Status:</strong> <span class="status-badge status-${data.status}">${data.status}</span><br>
+                        <strong>File:</strong> ${data.pdf_filename}<br>
+                        <strong>Timestamp:</strong> ${data.timestamp}<br>
+                    `;
+                    
+                    if (data.company_name) {
+                        html += `<strong>Company:</strong> ${data.company_name}<br>`;
+                    }
+                    
+                    if (data.github_org_data) {
+                        html += `<strong>GitHub Org:</strong> <pre>${JSON.stringify(data.github_org_data, null, 2)}</pre>`;
+                    }
+                    
+                    if (data.members_count !== undefined) {
+                        html += `<strong>Members Count:</strong> ${data.members_count}<br>`;
+                    }
+                    
+                    if (data.error_message) {
+                        html += `<strong>Error:</strong> ${data.error_message}<br>`;
+                    }
+                    
+                    showResult(html);
+                } else {
+                    showResult(`<strong>❌ Error:</strong> ${data.error}`);
+                }
+            } catch (error) {
+                showResult(`<strong>❌ Error:</strong> ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
