@@ -19,8 +19,11 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p uploads
 
+# Make entrypoint executable
+RUN chmod +x docker-entrypoint.py
+
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
+# Run the application using Python entrypoint
+CMD ["python", "docker-entrypoint.py"]
