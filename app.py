@@ -4,6 +4,8 @@ import sys
 import argparse
 import logging
 
+# For deployment - imports at the top
+from api import create_app
 from models import init_db
 
 # Configure logging
@@ -37,7 +39,6 @@ def main():
         app = create_async_app()
     else:
         logger.info("Starting Flask app with synchronous processing")
-        from api import create_app
         app = create_app()
     
     # Run the app
@@ -45,9 +46,8 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# For deployment - create app instance for gunicorn
-app = create_app()
-# Initialize database on startup
-from models import init_db
-init_db()
+else:
+    # For deployment - create app instance for gunicorn
+    app = create_app()
+    # Initialize database on startup
+    init_db()
