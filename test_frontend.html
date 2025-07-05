@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Processor Test Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .status.pending { background-color: #fff3cd; }
+        .status.processing { background-color: #cfe2ff; }
+        .status.completed { background-color: #d1e7dd; }
+        .status.failed { background-color: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Processor Test Interface</h1>
+        
+        <h2>1. Health Check</h2>
+        <button onclick="checkHealth()">Check Health</button>
+        <div id="healthResult" class="result"></div>
+        
+        <h2>2. Upload PDF</h2>
+        <input type="file" id="pdfFile" accept=".pdf">
+        <button onclick="uploadPDF()">Upload PDF</button>
+        <div id="uploadResult" class="result"></div>
+        
+        <h2>3. Check Job Status</h2>
+        <input type="text" id="jobId" placeholder="Enter Job ID">
+        <button onclick="checkStatus()">Check Status</button>
+        <div id="statusResult" class="result"></div>
+        
+        <h2>4. List All Documents</h2>
+        <button onclick="listDocuments()">List Documents</button>
+        <div id="listResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('healthResult').innerHTML = 
+                    `<strong>Status:</strong> ${data.status}<br>
+                     <strong>Timestamp:</strong> ${data.timestamp}`;
+            } catch (error) {
+                document.getElementById('healthResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdfFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a PDF file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('uploadResult').innerHTML = 
+                        `<strong>Success!</strong><br>
+                         <strong>Job ID:</strong> ${data.job_id}<br>
+                         <strong>Status:</strong> ${data.status}<br>
+                         <strong>Message:</strong> ${data.message}`;
+                    
+                    // Automatically set the job ID in the status check field
+                    document.getElementById('jobId').value = data.job_id;
+                } else {
+                    document.getElementById('uploadResult').innerHTML = 
+                        `<strong>Error:</strong> ${data.error}`;
+                }
+            } catch (error) {
+                document.getElementById('uploadResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function checkStatus() {
+            const jobId = document.getElementById('jobId').value;
+            
+            if (!jobId) {
+                alert('Please enter a Job ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/documents/status/${jobId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let html = `<div class="status ${data.status}">
+                        <strong>Job ID:</strong> ${data.job_id}<br>
+                        <strong>Status:</strong> ${data.status}<br>
+                        <strong>File:</strong> ${data.pdf_filename}<br>
+                        <strong>Timestamp:</strong> ${data.timestamp}<br>`;
+                    
+                    if (data.company_name) {
+                        html += `<strong>Company:</strong> ${data.company_name}<br>`;
+                    }
+                    
+                    if (data.github_org_data) {
+                        html += `<strong>GitHub Org:</strong> ${JSON.stringify(data.github_org_data)}<br>`;
+                    }
+                    
+                    if (data.members_count !== undefined) {
+                        html += `<strong>Members Count:</strong> ${data.members_count}<br>`;
+                    }
+                    
+                    if (data.error_message) {
+                        html += `<strong>Error:</strong> ${data.error_message}<br>`;
+                    }
+                    
+                    html += '</div>';
+                    document.getElementById('statusResult').innerHTML = html;
+                } else {
+                    document.getElementById('statusResult').innerHTML = 
+                        `<strong>Error:</strong> ${data.error}`;
+                }
+            } catch (error) {
+                document.getElementById('statusResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function listDocuments() {
+            try {
+                const response = await fetch(`${API_BASE}/api/documents`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let html = `<strong>Total Documents:</strong> ${data.documents.length}<br><br>`;
+                    
+                    data.documents.forEach(doc => {
+                        html += `<div class="status ${doc.status}" style="margin-bottom: 10px;">
+                            <strong>Job ID:</strong> ${doc.job_id}<br>
+                            <strong>File:</strong> ${doc.pdf_filename}<br>
+                            <strong>Status:</strong> ${doc.status}<br>
+                            <strong>Company:</strong> ${doc.company_name || 'N/A'}<br>
+                            <strong>Timestamp:</strong> ${doc.timestamp}<br>
+                        </div>`;
+                    });
+                    
+                    document.getElementById('listResult').innerHTML = html;
+                } else {
+                    document.getElementById('listResult').innerHTML = 
+                        `<strong>Error:</strong> ${data.error}`;
+                }
+            } catch (error) {
+                document.getElementById('listResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
