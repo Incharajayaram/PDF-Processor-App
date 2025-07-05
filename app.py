@@ -46,5 +46,8 @@ def main():
 if __name__ == '__main__':
     main()
 
-# For deployment
+# For deployment - create app instance for gunicorn
 app = create_app()
+# Initialize database on startup
+from models import init_db
+init_db()
